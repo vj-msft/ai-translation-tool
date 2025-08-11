@@ -7,68 +7,37 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useKV } from '@github/spark/hooks'
-import { Copy, Languages, Loader2, PaperPlaneRight, Globe } from '@phosphor-icons/react'
+import { Copy, Languages, Loader2, PaperPlaneRight } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type TranslationModel = 'gpt-4o' | 'gpt-5' | 'azure'
 
-type TargetLanguage = {
-  code: string
-  name: string
-}
-
-const TARGET_LANGUAGES: TargetLanguage[] = [
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-  { code: 'zh', name: 'Chinese (Simplified)' },
-  { code: 'ar', name: 'Arabic' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'tr', name: 'Turkish' },
-  { code: 'pl', name: 'Polish' },
-  { code: 'nl', name: 'Dutch' },
-  { code: 'sv', name: 'Swedish' },
-  { code: 'da', name: 'Danish' },
-  { code: 'no', name: 'Norwegian' },
-  { code: 'fi', name: 'Finnish' },
-  { code: 'he', name: 'Hebrew' }
-]
+// Fixed translation from English to Spanish (Europe)
+const TARGET_LANGUAGE = { code: 'es', name: 'Spanish (Spain)' }
 
 function App() {
   const [inputText, setInputText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
   const [selectedModel, setSelectedModel] = useKV<TranslationModel>('translation-model', 'gpt-4o')
-  const [targetLanguage, setTargetLanguage] = useKV<string>('target-language', 'en')
   const [isTranslating, setIsTranslating] = useState(false)
   const [error, setError] = useState('')
 
   // Check if send button should be enabled
-  const isSendEnabled = inputText.trim().length > 0 && selectedModel && targetLanguage && !isTranslating
-
-  const getLanguageName = (code: string) => {
-    return TARGET_LANGUAGES.find(lang => lang.code === code)?.name || 'English'
-  }
+  const isSendEnabled = inputText.trim().length > 0 && selectedModel && !isTranslating
 
   const performTranslation = async (text: string, model: TranslationModel) => {
     setIsTranslating(true)
     setError('')
 
     try {
-      const targetLangName = getLanguageName(targetLanguage)
       let prompt: string
       
       if (model === 'azure') {
-        prompt = spark.llmPrompt`Translate the following text to ${targetLangName} using Azure Translation service style. Be concise and accurate: ${text}`
+        prompt = spark.llmPrompt`Translate the following English text to Spanish (Spain) using Azure Translation service style. Be concise and accurate: ${text}`
       } else if (model === 'gpt-5') {
-        prompt = spark.llmPrompt`Using GPT-5 capabilities, translate this text to ${targetLangName} with enhanced context understanding: ${text}`
+        prompt = spark.llmPrompt`Using GPT-5 capabilities, translate this English text to Spanish (Spain) with enhanced context understanding: ${text}`
       } else {
-        prompt = spark.llmPrompt`Translate the following text to ${targetLangName}: ${text}`
+        prompt = spark.llmPrompt`Translate the following English text to Spanish (Spain): ${text}`
       }
 
       const result = await spark.llm(prompt, 'gpt-4o')
@@ -110,15 +79,15 @@ function App() {
         <div className="mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-2">
             <Languages size={32} className="text-accent" />
-            <h1 className="text-3xl font-bold text-foreground">AI Translation Service</h1>
+            <h1 className="text-3xl font-bold text-foreground">English to Spanish Translation</h1>
           </div>
           <p className="text-muted-foreground">
-            Translate text using advanced AI models with real-time results
+            Translate English text to Spanish (Spain) using advanced AI models
           </p>
         </div>
 
         {/* Model Selection */}
-        <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <div className="mb-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Choose Translation Model</CardTitle>
@@ -143,29 +112,6 @@ function App() {
               </RadioGroup>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Globe size={20} className="text-accent" />
-                Target Language
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={targetLanguage} onValueChange={setTargetLanguage}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select target language" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {TARGET_LANGUAGES.map((language) => (
-                    <SelectItem key={language.code} value={language.code}>
-                      {language.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Translation Interface */}
@@ -174,7 +120,7 @@ function App() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Input Text
+                English Text
                 <Badge variant="secondary" className="text-xs">
                   {inputText.length} characters
                 </Badge>
@@ -183,7 +129,7 @@ function App() {
             <CardContent className="space-y-4">
               <Textarea
                 id="input-text"
-                placeholder="Enter text to translate..."
+                placeholder="Enter English text to translate..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 className="min-h-[250px] resize-none text-base leading-relaxed"
@@ -207,9 +153,9 @@ function App() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  Translation
+                  Spanish Translation
                   <Badge variant="outline" className="text-xs">
-                    to {getLanguageName(targetLanguage)}
+                    {TARGET_LANGUAGE.name}
                   </Badge>
                   {isTranslating && (
                     <Badge variant="secondary" className="flex items-center gap-1">
@@ -261,13 +207,13 @@ function App() {
                           Translating with {modelLabels[selectedModel]}...
                         </div>
                       ) : (
-                        'Click "Translate" to see translation'
+                        'Click "Translate" to see Spanish translation'
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
-                    Enter text in the input area to see translation
+                    Enter English text to see Spanish translation
                   </div>
                 )}
               </div>
@@ -277,7 +223,7 @@ function App() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Powered by {modelLabels[selectedModel]} • Translating to {getLanguageName(targetLanguage)}
+          Powered by {modelLabels[selectedModel]} • English to {TARGET_LANGUAGE.name}
         </div>
       </div>
     </div>
