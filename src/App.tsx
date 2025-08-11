@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useKV } from '@github/spark/hooks'
-import { Copy, Languages, Loader2 } from '@phosphor-icons/react'
+import { Copy, Languages, Loader2, PaperPlaneRight } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type TranslationModel = 'gpt-4o' | 'gpt-5' | 'azure'
@@ -18,19 +18,8 @@ function App() {
   const [isTranslating, setIsTranslating] = useState(false)
   const [error, setError] = useState('')
 
-  // Debounced translation effect
-  useEffect(() => {
-    if (!inputText.trim()) {
-      setTranslatedText('')
-      return
-    }
-
-    const timeoutId = setTimeout(async () => {
-      await performTranslation(inputText, selectedModel)
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [inputText, selectedModel])
+  // Check if send button should be enabled
+  const isSendEnabled = inputText.trim().length > 0 && selectedModel && !isTranslating
 
   const performTranslation = async (text: string, model: TranslationModel) => {
     setIsTranslating(true)
@@ -55,6 +44,11 @@ function App() {
     } finally {
       setIsTranslating(false)
     }
+  }
+
+  const handleSendTranslation = async () => {
+    if (!isSendEnabled) return
+    await performTranslation(inputText, selectedModel)
   }
 
   const handleCopyTranslation = async () => {
@@ -126,15 +120,25 @@ function App() {
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Textarea
                 id="input-text"
                 placeholder="Enter text to translate..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                className="min-h-[300px] resize-none text-base leading-relaxed"
-                rows={12}
+                className="min-h-[250px] resize-none text-base leading-relaxed"
+                rows={10}
               />
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSendTranslation}
+                  disabled={!isSendEnabled}
+                  className="flex items-center gap-2"
+                >
+                  <PaperPlaneRight size={16} />
+                  {isTranslating ? 'Translating...' : 'Translate'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -185,7 +189,7 @@ function App() {
                   <div className="text-base leading-relaxed text-foreground">
                     {translatedText}
                   </div>
-                ) : inputText ? (
+                ) : inputText && !translatedText ? (
                   <div className="flex h-full items-center justify-center">
                     <div className="text-center text-muted-foreground">
                       {isTranslating ? (
@@ -194,7 +198,7 @@ function App() {
                           Translating with {modelLabels[selectedModel]}...
                         </div>
                       ) : (
-                        'Translation will appear here...'
+                        'Click "Translate" to see translation'
                       )}
                     </div>
                   </div>
