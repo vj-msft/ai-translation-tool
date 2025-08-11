@@ -5,35 +5,70 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useKV } from '@github/spark/hooks'
-import { Copy, Languages, Loader2, PaperPlaneRight } from '@phosphor-icons/react'
+import { Copy, Languages, Loader2, PaperPlaneRight, Globe } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type TranslationModel = 'gpt-4o' | 'gpt-5' | 'azure'
+
+type TargetLanguage = {
+  code: string
+  name: string
+}
+
+const TARGET_LANGUAGES: TargetLanguage[] = [
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'ru', name: 'Russian' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'zh', name: 'Chinese (Simplified)' },
+  { code: 'ar', name: 'Arabic' },
+  { code: 'hi', name: 'Hindi' },
+  { code: 'tr', name: 'Turkish' },
+  { code: 'pl', name: 'Polish' },
+  { code: 'nl', name: 'Dutch' },
+  { code: 'sv', name: 'Swedish' },
+  { code: 'da', name: 'Danish' },
+  { code: 'no', name: 'Norwegian' },
+  { code: 'fi', name: 'Finnish' },
+  { code: 'he', name: 'Hebrew' }
+]
 
 function App() {
   const [inputText, setInputText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
   const [selectedModel, setSelectedModel] = useKV<TranslationModel>('translation-model', 'gpt-4o')
+  const [targetLanguage, setTargetLanguage] = useKV<string>('target-language', 'en')
   const [isTranslating, setIsTranslating] = useState(false)
   const [error, setError] = useState('')
 
   // Check if send button should be enabled
-  const isSendEnabled = inputText.trim().length > 0 && selectedModel && !isTranslating
+  const isSendEnabled = inputText.trim().length > 0 && selectedModel && targetLanguage && !isTranslating
+
+  const getLanguageName = (code: string) => {
+    return TARGET_LANGUAGES.find(lang => lang.code === code)?.name || 'English'
+  }
 
   const performTranslation = async (text: string, model: TranslationModel) => {
     setIsTranslating(true)
     setError('')
 
     try {
+      const targetLangName = getLanguageName(targetLanguage)
       let prompt: string
       
       if (model === 'azure') {
-        prompt = spark.llmPrompt`Translate the following text to English using Azure Translation service style. Be concise and accurate: ${text}`
+        prompt = spark.llmPrompt`Translate the following text to ${targetLangName} using Azure Translation service style. Be concise and accurate: ${text}`
       } else if (model === 'gpt-5') {
-        prompt = spark.llmPrompt`Using GPT-5 capabilities, translate this text to English with enhanced context understanding: ${text}`
+        prompt = spark.llmPrompt`Using GPT-5 capabilities, translate this text to ${targetLangName} with enhanced context understanding: ${text}`
       } else {
-        prompt = spark.llmPrompt`Translate the following text to English: ${text}`
+        prompt = spark.llmPrompt`Translate the following text to ${targetLangName}: ${text}`
       }
 
       const result = await spark.llm(prompt, 'gpt-4o')
@@ -83,30 +118,55 @@ function App() {
         </div>
 
         {/* Model Selection */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Choose Translation Model</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={selectedModel}
-              onValueChange={(value) => setSelectedModel(value as TranslationModel)}
-              className="flex flex-col gap-3 sm:flex-row sm:gap-6"
-            >
-              {(Object.keys(modelLabels) as TranslationModel[]).map((model) => (
-                <div key={model} className="flex items-center space-x-2">
-                  <RadioGroupItem value={model} id={model} />
-                  <Label 
-                    htmlFor={model} 
-                    className="cursor-pointer font-medium text-foreground"
-                  >
-                    {modelLabels[model]}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </CardContent>
-        </Card>
+        <div className="mb-6 grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Choose Translation Model</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={selectedModel}
+                onValueChange={(value) => setSelectedModel(value as TranslationModel)}
+                className="flex flex-col gap-3"
+              >
+                {(Object.keys(modelLabels) as TranslationModel[]).map((model) => (
+                  <div key={model} className="flex items-center space-x-2">
+                    <RadioGroupItem value={model} id={model} />
+                    <Label 
+                      htmlFor={model} 
+                      className="cursor-pointer font-medium text-foreground"
+                    >
+                      {modelLabels[model]}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Globe size={20} className="text-accent" />
+                Target Language
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select value={targetLanguage} onValueChange={setTargetLanguage}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select target language" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {TARGET_LANGUAGES.map((language) => (
+                    <SelectItem key={language.code} value={language.code}>
+                      {language.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Translation Interface */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -148,6 +208,9 @@ function App() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   Translation
+                  <Badge variant="outline" className="text-xs">
+                    to {getLanguageName(targetLanguage)}
+                  </Badge>
                   {isTranslating && (
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Loader2 size={12} className="animate-spin" />
@@ -214,7 +277,7 @@ function App() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Powered by {modelLabels[selectedModel]} • Real-time translation
+          Powered by {modelLabels[selectedModel]} • Translating to {getLanguageName(targetLanguage)}
         </div>
       </div>
     </div>
