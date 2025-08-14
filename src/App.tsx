@@ -6,14 +6,18 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Copy, Translate, CircleNotch, PaperPlaneRight } from '@phosphor-icons/react'
+import { Copy, Translate, CircleNotch, PaperPlaneRight, File, FileText } from '@phosphor-icons/react'
 import { toast, Toaster } from 'sonner'
 import { azureOpenAIService, TranslationModel } from './services/azureOpenAI'
+import { CsvTranslator } from './components/JsonTranslator'
 
 // Fixed translation from English to Spanish (Europe)
 const TARGET_LANGUAGE = { code: 'es', name: 'Spanish (Spain)' }
 
+type AppMode = 'text' | 'csv'
+
 function App() {
+  const [mode, setMode] = useState<AppMode>('text')
   const [inputText, setInputText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
   const [selectedModel, setSelectedModel] = useState<TranslationModel>('gpt-4o')
@@ -27,6 +31,10 @@ function App() {
     'gpt-4o': 'GPT-4o',
     'gpt-5': 'GPT-5',
     'gpt-4.1': 'GPT-4.1'
+  }
+
+  if (mode === 'csv') {
+    return <CsvTranslator onBack={() => setMode('text')} />
   }
 
   const performTranslation = async (text: string, model: TranslationModel) => {
@@ -72,6 +80,26 @@ function App() {
           <p className="text-muted-foreground">
             Translate English text to Spanish (Spain) using advanced AI models
           </p>
+
+          {/* Mode Selection */}
+          <div className="mt-6 flex justify-center gap-2">
+            <Button
+              variant={mode === 'text' ? 'default' : 'outline'}
+              onClick={() => setMode('text')}
+              className="flex items-center gap-2"
+            >
+              <FileText size={16} />
+              Text Translation
+            </Button>
+            <Button
+              variant={mode === 'csv' ? 'default' : 'outline'}
+              onClick={() => setMode('csv')}
+              className="flex items-center gap-2"
+            >
+              <File size={16} />
+              CSV File Translation
+            </Button>
+          </div>
 
           {/* Configuration Status */}
           <div className="mt-4">

@@ -140,9 +140,39 @@ class AzureOpenAIService {
       const client = this.createClientForModel(model);
       this.lastError = null;
 
-      const systemPrompt = `You are a professional translator. Translate the following English text to Spanish (Spain).
-Provide only the translation without any additional explanation or formatting.
-Be accurate, natural, and maintain the tone and style of the original text.`;
+      const systemPrompt = `You are a professional translator specialized in Premier League football content translation. Translate the following English text to Spanish (Spain).
+
+TRANSLATION STANDARDS FOR PREMIER LEAGUE FOOTBALL:
+- You are specialized in translating Premier League football data, match reports, news, and commentary
+- Adhere strictly to football jargons, terminology, and nuances specific to Premier League football
+- Maintain consistency with official Spanish football terminology used in Spain for Premier League coverage
+- Preserve Premier League team names in their original English form (e.g., "Manchester United", "Arsenal", "Liverpool")
+- Preserve player names, manager names, and stadium names in their original form
+- Use appropriate Spanish football vernacular while keeping Premier League-specific expressions
+- Consider Spanish football journalism standards for Premier League coverage
+- Maintain the excitement and passion typical of football commentary and reporting
+
+PREMIER LEAGUE SPECIFIC GUIDELINES:
+- Keep Premier League terminology: "Premier League", "matchday", "fixture", "table", "relegation", "promotion"
+- Use Spanish football terms: "partido" (match), "gol" (goal), "tarjeta" (card), "penalti" (penalty)
+- Preserve match statistics, scores, dates, and league positions exactly as provided
+- Use "fútbol" not "soccer" when referring to the sport
+- Apply proper Spanish grammar while keeping Premier League authenticity
+- Maintain official Premier League competition names and formats
+
+FORMATTING AND STRUCTURE REQUIREMENTS:
+- CRITICAL: Preserve ALL markdown formatting exactly as provided in the original text
+- Maintain hyperlinks in exact format: [link text](URL) - translate only the link text, keep URLs unchanged
+- Preserve ALL markdown elements: **bold**, *italic*, lists, headers, etc.
+- Keep line breaks, paragraphs, and spacing exactly as in the original
+- Translate only the visible text content while preserving all formatting markup
+- Ensure the output can be directly used in APIs and UIs that expect markdown format
+
+GUIDELINES:
+- Provide only the translation without any additional explanation or formatting
+- Be accurate, natural, and maintain the excitement of Premier League football content
+- Use standard Spanish football broadcasting terminology for Premier League coverage
+- NEVER remove or alter markdown syntax, URLs, or structural formatting`;
 
       console.log('Making translation request:', {
         model: deploymentName,
@@ -198,6 +228,22 @@ Be accurate, natural, and maintain the tone and style of the original text.`;
         return this.mockTranslation(text, model) + `\n\n(Note: Azure API call failed: ${this.lastError})`;
       }
     }
+  }
+
+  async translateTextWithMultipleModels(text: string, models: TranslationModel[]): Promise<{ [key in TranslationModel]?: string }> {
+    const results: { [key in TranslationModel]?: string } = {};
+
+    // Translate with each model sequentially to avoid rate limiting
+    for (const model of models) {
+      try {
+        results[model] = await this.translateText(text, model);
+      } catch (error) {
+        console.error(`Failed to translate with ${model}:`, error);
+        results[model] = `Translation failed: ${error}`;
+      }
+    }
+
+    return results;
   }
 
   private mockTranslation(text: string, model: TranslationModel): string {
