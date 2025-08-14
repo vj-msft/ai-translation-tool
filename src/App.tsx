@@ -6,11 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useKV } from '@github/spark/hooks'
-import { Copy, Languages, Loader2, PaperPlaneRight } from '@phosphor-icons/react'
-import { toast } from 'sonner'
-
-type TranslationModel = 'gpt-4o' | 'gpt-5' | 'azure'
+import { Copy, Translate, CircleNotch, PaperPlaneRight } from '@phosphor-icons/react'
+import { toast, Toaster } from 'sonner'
+import { azureOpenAIService, TranslationModel } from './services/azureOpenAI'
 
 // Fixed translation from English to Spanish (Europe)
 const TARGET_LANGUAGE = { code: 'es', name: 'Spanish (Spain)' }
@@ -18,30 +16,26 @@ const TARGET_LANGUAGE = { code: 'es', name: 'Spanish (Spain)' }
 function App() {
   const [inputText, setInputText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
-  const [selectedModel, setSelectedModel] = useKV<TranslationModel>('translation-model', 'gpt-4o')
+  const [selectedModel, setSelectedModel] = useState<TranslationModel>('gpt-4o')
   const [isTranslating, setIsTranslating] = useState(false)
   const [error, setError] = useState('')
 
   // Check if send button should be enabled
   const isSendEnabled = inputText.trim().length > 0 && selectedModel && !isTranslating
 
+  const modelLabels = {
+    'gpt-4o': 'GPT-4o',
+    'gpt-5': 'GPT-5',
+    'gpt-4.1': 'GPT-4.1'
+  }
+
   const performTranslation = async (text: string, model: TranslationModel) => {
     setIsTranslating(true)
     setError('')
 
     try {
-      let prompt: string
-      
-      if (model === 'azure') {
-        prompt = spark.llmPrompt`Translate the following English text to Spanish (Spain) using Azure Translation service style. Be concise and accurate: ${text}`
-      } else if (model === 'gpt-5') {
-        prompt = spark.llmPrompt`Using GPT-5 capabilities, translate this English text to Spanish (Spain) with enhanced context understanding: ${text}`
-      } else {
-        prompt = spark.llmPrompt`Translate the following English text to Spanish (Spain): ${text}`
-      }
-
-      const result = await spark.llm(prompt, 'gpt-4o')
-      setTranslatedText(result)
+      const translatedText = await azureOpenAIService.translateText(text, model)
+      setTranslatedText(translatedText)
     } catch (err) {
       setError('Translation failed. Please try again.')
       console.error('Translation error:', err)
@@ -57,7 +51,7 @@ function App() {
 
   const handleCopyTranslation = async () => {
     if (!translatedText) return
-    
+
     try {
       await navigator.clipboard.writeText(translatedText)
       toast.success('Translation copied to clipboard!')
@@ -66,24 +60,28 @@ function App() {
     }
   }
 
-  const modelLabels = {
-    'gpt-4o': 'GPT-4o',
-    'gpt-5': 'GPT-5',
-    'azure': 'Azure Translation'
-  }
-
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-2">
-            <Languages size={32} className="text-accent" />
+            <Translate size={32} className="text-accent" />
             <h1 className="text-3xl font-bold text-foreground">English to Spanish Translation</h1>
           </div>
           <p className="text-muted-foreground">
             Translate English text to Spanish (Spain) using advanced AI models
           </p>
+
+          {/* Configuration Status */}
+          <div className="mt-4">
+            <Badge
+              variant={azureOpenAIService.isConfigured() ? "default" : "secondary"}
+              className="text-xs"
+            >
+              {azureOpenAIService.getConfigurationStatus()}
+            </Badge>
+          </div>
         </div>
 
         {/* Model Selection */}
@@ -101,8 +99,8 @@ function App() {
                 {(Object.keys(modelLabels) as TranslationModel[]).map((model) => (
                   <div key={model} className="flex items-center space-x-2">
                     <RadioGroupItem value={model} id={model} />
-                    <Label 
-                      htmlFor={model} 
+                    <Label
+                      htmlFor={model}
                       className="cursor-pointer font-medium text-foreground"
                     >
                       {modelLabels[model]}
@@ -159,7 +157,7 @@ function App() {
                   </Badge>
                   {isTranslating && (
                     <Badge variant="secondary" className="flex items-center gap-1">
-                      <Loader2 size={12} className="animate-spin" />
+                      <CircleNotch size={12} className="animate-spin" />
                       Translating...
                     </Badge>
                   )}
@@ -203,7 +201,7 @@ function App() {
                     <div className="text-center text-muted-foreground">
                       {isTranslating ? (
                         <div className="flex items-center gap-2">
-                          <Loader2 size={20} className="animate-spin" />
+                          <CircleNotch size={20} className="animate-spin" />
                           Translating with {modelLabels[selectedModel]}...
                         </div>
                       ) : (
@@ -226,6 +224,7 @@ function App() {
           Powered by {modelLabels[selectedModel]} • English to {TARGET_LANGUAGE.name}
         </div>
       </div>
+      <Toaster />
     </div>
   )
 }
