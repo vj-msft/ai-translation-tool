@@ -6,9 +6,9 @@ import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Upload, Download, FileText, CircleNotch, File } from '@phosphor-icons/react'
+import { Upload, Download, FileText, CircleNotch, File, Clock } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { azureOpenAIService, TranslationModel } from '../services/azureOpenAI'
+import { azureOpenAIService, TranslationModel, TranslationResult } from '../services/azureOpenAI'
 
 interface CsvRow {
   [key: string]: string
@@ -17,7 +17,7 @@ interface CsvRow {
 interface MultiModelTranslationResult {
   sNo: number
   english: string
-  translations: { [key in TranslationModel]?: string }
+  translations: { [key in TranslationModel]?: TranslationResult }
 }
 
 interface CsvTranslatorProps {
@@ -25,7 +25,7 @@ interface CsvTranslatorProps {
 }
 
 export function CsvTranslator({ onBack }: CsvTranslatorProps) {
-  const [selectedModels, setSelectedModels] = useState<TranslationModel[]>(['gpt-4o'])
+  const [selectedModels, setSelectedModels] = useState<TranslationModel[]>(['gpt-4.1', 'gpt-5-mini'])
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [csvData, setCsvData] = useState<CsvRow[]>([])
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
@@ -37,9 +37,15 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const modelLabels = {
-    'gpt-4o': 'GPT-4o',
-    'gpt-5': 'GPT-5',
-    'gpt-4.1': 'GPT-4.1'
+    'gpt-4.1': 'GPT-4.1',
+    'gpt-5-chat': 'GPT-5 Chat',
+    'gpt-5-mini': 'GPT-5 Mini',
+    'gpt-5-nano': 'GPT-5 Nano',
+    'phi-4': 'Microsoft Phi-4',
+    'grok-3-mini': 'Grok-3 Mini',
+    'mistral-small-2503': 'Mistral Small 2503',
+    'mistral-small-2503-2': 'Mistral Small 2503-2',
+    'azure-translate': 'Azure AI Translation Service'
   }
 
   const handleModelSelection = (model: TranslationModel, checked: boolean) => {
@@ -179,7 +185,7 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
       }
 
       const results: MultiModelTranslationResult[] = []
-      const translationMaps = new Map<string, { [key in TranslationModel]?: string }>()
+      const translationMaps = new Map<string, { [key in TranslationModel]?: TranslationResult }>()
 
       // Translate each unique text with all selected models
       for (let i = 0; i < uniqueTexts.length; i++) {
@@ -206,9 +212,14 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
         } catch (error) {
           console.error(`Failed to translate: ${text}`, error)
           // Continue with original text if translation fails
-          const fallbackTranslations: { [key in TranslationModel]?: string } = {}
+          const fallbackTranslations: { [key in TranslationModel]?: TranslationResult } = {}
           selectedModels.forEach(model => {
-            fallbackTranslations[model] = text
+            fallbackTranslations[model] = {
+              text: text,
+              model,
+              latency: 0,
+              timestamp: new Date().toISOString()
+            }
           })
           translationMaps.set(text, fallbackTranslations)
         }
@@ -224,7 +235,7 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
           if (translations) {
             selectedModels.forEach(model => {
               const columnName = `Spanish-${modelLabels[model]}`
-              newRow[columnName] = translations[model] || englishText
+              newRow[columnName] = translations[model]?.text || englishText
             })
           }
         }
@@ -245,26 +256,12 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
   }
 
   const downloadTranslatedCsv = () => {
-    if (translatedCsvData.length === 0) return
-
-    // Generate new headers including the model-specific Spanish columns
-    const originalHeaders = csvHeaders.filter(h => !h.toLowerCase().includes('spanish'))
-    const newHeaders = [...originalHeaders]
-    selectedModels.forEach(model => {
-      newHeaders.push(`Spanish-${modelLabels[model]}`)
-    })
-
-    const csvContent = generateCsvFromData(translatedCsvData, newHeaders)
-    downloadFile(csvContent, `${uploadedFile?.name.replace('.csv', '')}_translated.csv`, 'text/csv')
-    toast.success('Translated CSV file downloaded')
-  }
-
-  const downloadTranslationReport = () => {
     if (translationResults.length === 0) return
 
+    // Generate CSV with both translations and latency data
     const csvContent = generateMultiModelCsv(translationResults)
-    downloadFile(csvContent, 'translation-report.csv', 'text/csv')
-    toast.success('Translation report downloaded')
+    downloadFile(csvContent, `${uploadedFile?.name.replace('.csv', '')}_translated.csv`, 'text/csv')
+    toast.success('Translated CSV file with latency data downloaded')
   }
 
   const generateCsvFromData = (data: CsvRow[], headers: string[]): string => {
@@ -289,14 +286,24 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
   }
 
   const generateMultiModelCsv = (results: MultiModelTranslationResult[]): string => {
-    const headers = ['S.no', 'English', ...selectedModels.map(model => `Spanish-${modelLabels[model]}`)]
+    const translationHeaders = selectedModels.map(model => `Spanish-${modelLabels[model]}`)
+    const latencyHeaders = selectedModels.map(model => `Latency-${modelLabels[model]} (ms)`)
+    const headers = ['S.no', 'English', ...translationHeaders, ...latencyHeaders]
     const csvRows = [headers.join(',')]
 
     results.forEach(({ sNo, english, translations }) => {
+      const translationValues = selectedModels.map(model =>
+        escapeCsvField(translations[model]?.text || '')
+      )
+      const latencyValues = selectedModels.map(model =>
+        translations[model]?.latency?.toString() || ''
+      )
+
       const row = [
         sNo.toString(),
         escapeCsvField(english),
-        ...selectedModels.map(model => escapeCsvField(translations[model] || ''))
+        ...translationValues,
+        ...latencyValues
       ]
       csvRows.push(row.join(','))
     })
@@ -480,14 +487,10 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
-                <Button onClick={downloadTranslationReport} variant="outline">
-                  <Download size={16} className="mr-2" />
-                  Download Translation Report
-                </Button>
-                {translatedCsvData.length > 0 && (
+                {translationResults.length > 0 && (
                   <Button onClick={downloadTranslatedCsv} variant="outline">
                     <Download size={16} className="mr-2" />
-                    Download Updated CSV
+                    Download CSV with Latency Data
                   </Button>
                 )}
               </div>
@@ -509,7 +512,13 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
                       <TableHead className="w-16">S.no</TableHead>
                       <TableHead>English</TableHead>
                       {selectedModels.map(model => (
-                        <TableHead key={model}>Spanish-{modelLabels[model]}</TableHead>
+                        <TableHead key={model}>
+                          Spanish-{modelLabels[model]}
+                          <Badge variant="outline" className="ml-1 text-xs">
+                            <Clock size={10} className="mr-1" />
+                            +timing
+                          </Badge>
+                        </TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -519,8 +528,20 @@ export function CsvTranslator({ onBack }: CsvTranslatorProps) {
                         <TableCell>{result.sNo}</TableCell>
                         <TableCell className="max-w-xs truncate">{result.english}</TableCell>
                         {selectedModels.map(model => (
-                          <TableCell key={model} className="max-w-xs truncate">
-                            {result.translations[model] || ''}
+                          <TableCell key={model} className="max-w-xs">
+                            <div className="space-y-1">
+                              <div className="truncate">
+                                {result.translations[model]?.text || ''}
+                              </div>
+                              {result.translations[model] && (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {result.translations[model]?.latency}ms
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                         ))}
                       </TableRow>

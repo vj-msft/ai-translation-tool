@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Copy, Translate, CircleNotch, PaperPlaneRight, File, FileText } from '@phosphor-icons/react'
+import { Copy, Translate, CircleNotch, PaperPlaneRight, File, FileText, Clock } from '@phosphor-icons/react'
 import { toast, Toaster } from 'sonner'
-import { azureOpenAIService, TranslationModel } from './services/azureOpenAI'
+import { azureOpenAIService, TranslationModel, TranslationResult } from './services/azureOpenAI'
 import { CsvTranslator } from './components/JsonTranslator'
 
 // Fixed translation from English to Spanish (Europe)
@@ -19,8 +19,8 @@ type AppMode = 'text' | 'csv'
 function App() {
   const [mode, setMode] = useState<AppMode>('text')
   const [inputText, setInputText] = useState('')
-  const [translatedText, setTranslatedText] = useState('')
-  const [selectedModel, setSelectedModel] = useState<TranslationModel>('gpt-4o')
+  const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null)
+  const [selectedModel, setSelectedModel] = useState<TranslationModel>('gpt-4.1')
   const [isTranslating, setIsTranslating] = useState(false)
   const [error, setError] = useState('')
 
@@ -28,9 +28,14 @@ function App() {
   const isSendEnabled = inputText.trim().length > 0 && selectedModel && !isTranslating
 
   const modelLabels = {
-    'gpt-4o': 'GPT-4o',
-    'gpt-5': 'GPT-5',
-    'gpt-4.1': 'GPT-4.1'
+    'gpt-4.1': 'GPT-4.1',
+    'gpt-5-chat': 'GPT-5 Chat',
+    'gpt-5-mini': 'GPT-5 Mini',
+    'gpt-5-nano': 'GPT-5 Nano',
+    'phi-4': 'Microsoft Phi-4',
+    'grok-3-mini': 'Grok-3 Mini',
+    'mistral-small-2503': 'Mistral Small 2503',
+    'azure-translate': 'Azure AI Translation Service'
   }
 
   if (mode === 'csv') {
@@ -42,8 +47,8 @@ function App() {
     setError('')
 
     try {
-      const translatedText = await azureOpenAIService.translateText(text, model)
-      setTranslatedText(translatedText)
+      const result = await azureOpenAIService.translateText(text, model)
+      setTranslationResult(result)
     } catch (err) {
       setError('Translation failed. Please try again.')
       console.error('Translation error:', err)
@@ -58,10 +63,10 @@ function App() {
   }
 
   const handleCopyTranslation = async () => {
-    if (!translatedText) return
+    if (!translationResult?.text) return
 
     try {
-      await navigator.clipboard.writeText(translatedText)
+      await navigator.clipboard.writeText(translationResult.text)
       toast.success('Translation copied to clipboard!')
     } catch (err) {
       toast.error('Failed to copy translation')
@@ -190,16 +195,25 @@ function App() {
                     </Badge>
                   )}
                 </CardTitle>
-                {translatedText && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyTranslation}
-                    className="flex items-center gap-1"
-                  >
-                    <Copy size={14} />
-                    Copy
-                  </Button>
+                {translationResult && (
+                  <div className="mb-2 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyTranslation}
+                      className="flex items-center gap-1"
+                    >
+                      <Copy size={14} />
+                      Copy
+                    </Button>
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <Clock size={12} />
+                      {translationResult.latency}ms
+                    </Badge>
+                    <Badge variant="outline">
+                      {modelLabels[translationResult.model]}
+                    </Badge>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -220,11 +234,11 @@ function App() {
                       </Button>
                     </div>
                   </div>
-                ) : translatedText ? (
+                ) : translationResult ? (
                   <div className="text-base leading-relaxed text-foreground">
-                    {translatedText}
+                    {translationResult.text}
                   </div>
-                ) : inputText && !translatedText ? (
+                ) : inputText && !translationResult ? (
                   <div className="flex h-full items-center justify-center">
                     <div className="text-center text-muted-foreground">
                       {isTranslating ? (
