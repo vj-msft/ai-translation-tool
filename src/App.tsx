@@ -33,7 +33,6 @@ function App() {
     'gpt-5-mini': 'GPT-5 Mini',
     'gpt-5-nano': 'GPT-5 Nano',
     'phi-4': 'Microsoft Phi-4',
-    'grok-3-mini': 'Grok-3 Mini',
     'mistral-small-2503': 'Mistral Small 2503',
     'azure-translate': 'Azure AI Translation Service'
   }
