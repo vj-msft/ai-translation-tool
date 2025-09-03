@@ -6,7 +6,7 @@ const testAzureTranslateAPI = async () => {
 
   // Check environment variables
   const endpoint = 'https://api.cognitive.microsofttranslator.com/';
-  const apiKey = 'j27MfTImfERiuxaueNBEeAnfsr8uYCB68QeYlRSedWG22N9lb6FLJQQJ99BHACYeBjFXJ3w3AAAbACOGMh15';
+  const apiKey = '';
   const region = 'eastus'; // Corrected region
 
   console.log('📋 Configuration Check:');
